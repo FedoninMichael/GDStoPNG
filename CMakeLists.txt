@@ -10,6 +10,7 @@ set(GDSTK_DIR "${CMAKE_SOURCE_DIR}/external/gdstk")
 
 # Добавьте каталог с заголовочными файлами gdstk
 include_directories(${GDSTK_DIR}/include/gdstk)
+include_directories(${CMAKE_SOURCE_DIR}/external/stb)
 
 # Подключите библиотеку gdstk к вашему проекту
 target_link_libraries(GDStoPNG PRIVATE gdstk)
