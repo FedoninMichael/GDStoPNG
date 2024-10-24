@@ -83,11 +83,12 @@ int main(int argc, char* argv[]) {
     string output_png = argv[4];
 
     // Чтение GDSII-файла
-    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-9, 10e-6, nullptr, nullptr);
+    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, nullptr, nullptr);
 
     gdstk::Cell* top_cell = lib.cell_array[0];
     gdstk::Array<gdstk::Reference*> removed_references = {0};
     top_cell->flatten(true, removed_references);
+    cout << "Головная ячейка: " << top_cell << endl;
 
     // Определяем ограничивающий прямоугольник для Clipper
     ClipperLib::Path rect = {
@@ -96,6 +97,7 @@ int main(int argc, char* argv[]) {
             ClipperLib::IntPoint(upright_coord.first * 1e6, upright_coord.second * 1e6),
             ClipperLib::IntPoint(lowleft_coord.first * 1e6, upright_coord.second * 1e6)
     };
+    cout << "Ограничивающий прямоугольник: " << rect << endl;
 
     // Обрезка полигонов с использованием Clipper
     ClipperLib::Clipper clipper;
@@ -117,6 +119,7 @@ int main(int argc, char* argv[]) {
     for (const auto& path : clipped_polygons) {
         final_polygons.append(new gdstk::Polygon(convert_from_clipper(path)));
     }
+    cout << "Новые полигоны: " << clipped_polygons << endl;
 
     // Очищаем старые полигоны и заменяем новыми
     top_cell -> clear();
@@ -147,6 +150,8 @@ int main(int argc, char* argv[]) {
     int max_y = static_cast<int>(max_bound.y);
     int width = max_x - min_x + 1;
     int height = max_y - min_y + 1;
+    cout << "width: " << width << endl;
+    cout << "height: " << height << endl;
 
     // Создание пустого изображения с белым фоном
     std::vector<unsigned char> image(width * height, 255);
@@ -154,6 +159,7 @@ int main(int argc, char* argv[]) {
     // Рисование полигонов на изображении
     for (size_t i = 0; i < final_polygons.count; ++i) {
         gdstk::Polygon* polygon = final_polygons[i];
+        cout << "polygon: " << polygon << endl;
         for (size_t j = 0; j < polygon->point_array.count; ++j) {
             int x = static_cast<int>(polygon->point_array[j].x) - min_x;
             int y = static_cast<int>(polygon->point_array[j].y) - min_y;
