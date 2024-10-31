@@ -127,28 +127,6 @@ int main(int argc, char* argv[]) {
     }
 
 
-//    // Создаем массивы для минимальных и максимальных значений
-//    gdstk::Vec2 min_bound, max_bound;
-//
-//    // Вычисляем границы (bounding box) для обрезанных полигонов
-//    final_polygons[0]->bounding_box(min_bound, max_bound);
-//
-//    for (size_t i = 1; i < final_polygons.count; ++i) {
-//        gdstk::Vec2 current_min, current_max;
-//        final_polygons[i]->bounding_box(current_min, current_max);
-//        if (current_min.x < min_bound.x) min_bound.x = current_min.x;
-//        if (current_min.y < min_bound.y) min_bound.y = current_min.y;
-//        if (current_max.x > max_bound.x) max_bound.x = current_max.x;
-//        if (current_max.y > max_bound.y) max_bound.y = current_max.y;
-//    }
-//
-//    // Определяем размеры изображения
-//    int min_x = static_cast<int>(min_bound.x);
-//    int min_y = static_cast<int>(min_bound.y);
-//    int max_x = static_cast<int>(max_bound.x);
-//    int max_y = static_cast<int>(max_bound.y);
-//    int width = max_x - min_x + 1;
-//    int height = max_y - min_y + 1;
     int width = upright_coord.first - lowleft_coord.first;
     int height = upright_coord.second - lowleft_coord.second;
     cout << "width: " << width << endl;
@@ -175,6 +153,29 @@ int main(int argc, char* argv[]) {
     stbi_write_png(output_png.c_str(), width, height, 1, image.data(), width);
 
     cout << "Изображение сохранено: " << output_png << endl;
+
+
+    // Create a GDSII library and cell for output
+    gdstk::Library library = {};
+    library.init("output_library", 1e-6, 1e-8);
+    gdstk::Cell output_cell = {};
+    library.cell_array.append(&output_cell);
+
+    // Add polygons to the cell
+    for (size_t i = 0; i < final_polygons.count; ++i) {
+        output_cell.polygon_array.append(final_polygons[i]);
+    }
+
+    // Write library to GDS file
+    std::string output_gds = "output.gds";
+    library.write_gds(output_gds.c_str(), 100, NULL);
+
+    cout << "GDS file saved: " << output_gds << endl;
+
+    // Free cell and library resources
+    output_cell.clear();
+    library.clear();
+
 
     for (size_t i = 0; i < final_polygons.count; ++i) {
         delete final_polygons[i];
