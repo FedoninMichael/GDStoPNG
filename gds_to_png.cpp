@@ -49,8 +49,8 @@ ClipperLib::Path convert_to_clipper(const gdstk::Polygon* polygon) {
     ClipperLib::Path path;
     for (size_t i = 0; i < polygon->point_array.count; ++i) {
         path << ClipperLib::IntPoint(
-                static_cast<int64_t>(polygon->point_array[i].x * 1e6),  // Масштабирование для Clipper
-                static_cast<int64_t>(polygon->point_array[i].y * 1e6)
+                static_cast<int64_t>(polygon->point_array[i].x * 1e2),  // Масштабирование для Clipper
+                static_cast<int64_t>(polygon->point_array[i].y * 1e2)
         );
     }
     return path;
@@ -60,7 +60,7 @@ ClipperLib::Path convert_to_clipper(const gdstk::Polygon* polygon) {
 gdstk::Polygon convert_from_clipper(const ClipperLib::Path& path) {
     gdstk::Polygon result;
     for (const auto& point : path) {
-        result.point_array.append({static_cast<double>(point.X) * 1e-6, static_cast<double>(point.Y) * 1e-6});  // Обратное масштабирование
+        result.point_array.append({static_cast<double>(point.X) * 1e-2, static_cast<double>(point.Y) * 1e-2});  // Обратное масштабирование
     }
     return result;
 }
@@ -88,14 +88,13 @@ int main(int argc, char* argv[]) {
     gdstk::Cell* top_cell = lib.cell_array[0];
     gdstk::Array<gdstk::Reference*> removed_references = {0};
     top_cell->flatten(true, removed_references);
-    cout << "Головная ячейка: " << top_cell << endl;
 
     // Определяем ограничивающий прямоугольник для Clipper
     ClipperLib::Path rect = {
-            ClipperLib::IntPoint(lowleft_coord.first * 1e6, lowleft_coord.second * 1e6),
-            ClipperLib::IntPoint(upright_coord.first * 1e6, lowleft_coord.second * 1e6),
-            ClipperLib::IntPoint(upright_coord.first * 1e6, upright_coord.second * 1e6),
-            ClipperLib::IntPoint(lowleft_coord.first * 1e6, upright_coord.second * 1e6)
+            ClipperLib::IntPoint(lowleft_coord.first * 1e2, lowleft_coord.second * 1e2),
+            ClipperLib::IntPoint(upright_coord.first * 1e2, lowleft_coord.second * 1e2),
+            ClipperLib::IntPoint(upright_coord.first * 1e2, upright_coord.second * 1e2),
+            ClipperLib::IntPoint(lowleft_coord.first * 1e2, upright_coord.second * 1e2)
     };
     cout << "Ограничивающий прямоугольник: " << rect << endl;
 
@@ -128,41 +127,44 @@ int main(int argc, char* argv[]) {
     }
 
 
-    // Создаем массивы для минимальных и максимальных значений
-    gdstk::Vec2 min_bound, max_bound;
-
-    // Вычисляем границы (bounding box) для обрезанных полигонов
-    final_polygons[0]->bounding_box(min_bound, max_bound);
-
-    for (size_t i = 1; i < final_polygons.count; ++i) {
-        gdstk::Vec2 current_min, current_max;
-        final_polygons[i]->bounding_box(current_min, current_max);
-        if (current_min.x < min_bound.x) min_bound.x = current_min.x;
-        if (current_min.y < min_bound.y) min_bound.y = current_min.y;
-        if (current_max.x > max_bound.x) max_bound.x = current_max.x;
-        if (current_max.y > max_bound.y) max_bound.y = current_max.y;
-    }
-
-    // Определяем размеры изображения
-    int min_x = static_cast<int>(min_bound.x);
-    int min_y = static_cast<int>(min_bound.y);
-    int max_x = static_cast<int>(max_bound.x);
-    int max_y = static_cast<int>(max_bound.y);
-    int width = max_x - min_x + 1;
-    int height = max_y - min_y + 1;
+//    // Создаем массивы для минимальных и максимальных значений
+//    gdstk::Vec2 min_bound, max_bound;
+//
+//    // Вычисляем границы (bounding box) для обрезанных полигонов
+//    final_polygons[0]->bounding_box(min_bound, max_bound);
+//
+//    for (size_t i = 1; i < final_polygons.count; ++i) {
+//        gdstk::Vec2 current_min, current_max;
+//        final_polygons[i]->bounding_box(current_min, current_max);
+//        if (current_min.x < min_bound.x) min_bound.x = current_min.x;
+//        if (current_min.y < min_bound.y) min_bound.y = current_min.y;
+//        if (current_max.x > max_bound.x) max_bound.x = current_max.x;
+//        if (current_max.y > max_bound.y) max_bound.y = current_max.y;
+//    }
+//
+//    // Определяем размеры изображения
+//    int min_x = static_cast<int>(min_bound.x);
+//    int min_y = static_cast<int>(min_bound.y);
+//    int max_x = static_cast<int>(max_bound.x);
+//    int max_y = static_cast<int>(max_bound.y);
+//    int width = max_x - min_x + 1;
+//    int height = max_y - min_y + 1;
+    int width = upright_coord.first - lowleft_coord.first;
+    int height = upright_coord.second - lowleft_coord.second;
     cout << "width: " << width << endl;
     cout << "height: " << height << endl;
 
     // Создание пустого изображения с белым фоном
-    std::vector<unsigned char> image(width * height, 255);
+    std::vector<unsigned char> image(height * width, 255);
 
     // Рисование полигонов на изображении
     for (size_t i = 0; i < final_polygons.count; ++i) {
         gdstk::Polygon* polygon = final_polygons[i];
-        cout << "polygon: " << polygon << endl;
         for (size_t j = 0; j < polygon->point_array.count; ++j) {
-            int x = static_cast<int>(polygon->point_array[j].x) - min_x;
-            int y = static_cast<int>(polygon->point_array[j].y) - min_y;
+//            int x = static_cast<int>(polygon->point_array[j].x) - min_x;
+//            int y = static_cast<int>(polygon->point_array[j].y) - min_y;
+            int x = static_cast<int>(polygon->point_array[j].x) - lowleft_coord.first;
+            int y = upright_coord.second - static_cast<int>(polygon->point_array[j].y);
             if (x >= 0 && x < width && y >= 0 && y < height) {
                 image[y * width + x] = 0;  // Установка черного пикселя
             }
