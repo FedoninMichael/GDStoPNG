@@ -58,7 +58,8 @@ ClipperLib::Path convert_to_clipper(const gdstk::Polygon* polygon) {
 
 // Преобразование Clipper Path обратно в gdstk::Polygon
 gdstk::Polygon convert_from_clipper(const ClipperLib::Path& path) {
-    gdstk::Polygon result;
+    gdstk::Polygon result = {0};
+    cout << "path:" << path << endl;
     for (const auto& point : path) {
         result.point_array.append({static_cast<double>(point.X) * 1e-2, static_cast<double>(point.Y) * 1e-2});  // Обратное масштабирование
     }
@@ -83,7 +84,7 @@ int main(int argc, char* argv[]) {
     string output_png = argv[4];
 
     // Чтение GDSII-файла
-    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, nullptr, nullptr);
+    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, NULL, NULL);
 
     gdstk::Cell* top_cell = lib.cell_array[0];
     gdstk::Array<gdstk::Reference*> removed_references = {0};
@@ -126,6 +127,12 @@ int main(int argc, char* argv[]) {
         top_cell->polygon_array.append(final_polygons[i]);
     }
 
+    // Освобождение памяти для polygons массива
+    for (size_t i = 0; i < polygons.count; ++i) {
+        delete polygons[i];
+    }
+    polygons.clear();
+
 
     int width = upright_coord.first - lowleft_coord.first;
     int height = upright_coord.second - lowleft_coord.second;
@@ -158,28 +165,36 @@ int main(int argc, char* argv[]) {
     // Create a GDSII library and cell for output
     gdstk::Library library = {};
     library.init("output_library", 1e-6, 1e-8);
-    gdstk::Cell output_cell = {};
-    library.cell_array.append(&output_cell);
+//    gdstk::Cell output_cell = {};
+    gdstk::Cell* output_cell = new gdstk::Cell(); // Default constructor
+    output_cell->name = gdstk::copy_string("output", NULL);
+    library.cell_array.append(output_cell);
 
     // Add polygons to the cell
     for (size_t i = 0; i < final_polygons.count; ++i) {
-        output_cell.polygon_array.append(final_polygons[i]);
+        output_cell->polygon_array.append(final_polygons[i]);
     }
 
     // Write library to GDS file
-    std::string output_gds = "output.gds";
-    library.write_gds(output_gds.c_str(), 100, NULL);
+    cout << "Выходной GDS: " << library.name << endl;
+    cout << "Выходной GDS: " << library.cell_array.count << endl;
+    cout << "Выходной GDS: " << library.properties << endl;
+    library.write_gds("output.GDS", 0, NULL);
 
-    cout << "GDS file saved: " << output_gds << endl;
-
-    // Free cell and library resources
-    output_cell.clear();
-    library.clear();
+    cout << "GDS file saved: output.GDS" << endl;
 
 
     for (size_t i = 0; i < final_polygons.count; ++i) {
         delete final_polygons[i];
     }
+
+
+    final_polygons.clear();
+    output_cell->clear();
+    delete output_cell;
+    library.clear();
+    lib.clear();
+    top_cell->clear();
 
     return 0;
 }

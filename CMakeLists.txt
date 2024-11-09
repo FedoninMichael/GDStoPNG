@@ -3,6 +3,9 @@ project(GDStoPNG)
 
 set(CMAKE_CXX_STANDARD 17)
 
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -fsanitize=address -fno-omit-frame-pointer")
+set(CMAKE_BUILD_TYPE Debug)
+
 add_executable(GDStoPNG gds_to_png.cpp)
 
 set(GDSTK_DIR "${CMAKE_SOURCE_DIR}/external/gdstk")
