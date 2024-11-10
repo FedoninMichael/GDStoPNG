@@ -26,23 +26,6 @@ pair<double, double> parse_coordinates(const string& coord) {
     return {coords[0], coords[1]};
 }
 
-// Функция для рисования прямоугольников
-void draw_rectangle(vector<unsigned char>& image, int width, int x1, int y1, int x2, int y2) {
-    for (int y = y1; y <= y2; ++y) {
-        for (int x = x1; x <= x2; ++x) {
-            if (x >= 0 && x < width && y >= 0 && y < image.size() / width) {
-                image[y * width + x] = 0; // Чёрный цвет
-            }
-        }
-    }
-}
-
-// Функция для установки пикселя
-void set_pixel(vector<unsigned char>& image, int width, int x, int y) {
-    if (x >= 0 && x < width && y >= 0 && y < image.size() / width) {
-        image[y * width + x] = 0; // Чёрный цвет
-    }
-}
 
 // Преобразование gdstk::Polygon в Clipper Path
 ClipperLib::Path convert_to_clipper(const gdstk::Polygon* polygon) {
@@ -59,7 +42,6 @@ ClipperLib::Path convert_to_clipper(const gdstk::Polygon* polygon) {
 // Преобразование Clipper Path обратно в gdstk::Polygon
 gdstk::Polygon convert_from_clipper(const ClipperLib::Path& path) {
     gdstk::Polygon result = {0};
-    cout << "path:" << path << endl;
     for (const auto& point : path) {
         result.point_array.append({static_cast<double>(point.X) * 1e-2, static_cast<double>(point.Y) * 1e-2});  // Обратное масштабирование
     }
