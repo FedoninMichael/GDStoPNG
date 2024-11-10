@@ -68,7 +68,7 @@ gdstk::Polygon convert_from_clipper(const ClipperLib::Path& path) {
 
 int main(int argc, char* argv[]) {
     if (argc != 5) {
-        cerr << "Использование: " << argv[0] << " <input.gds> <x1,y1> <x2,y2> <output.png>" << endl;
+        cerr << "Использование: " << argv[0] << " <input.gds> <x1,y1> <x2,y2> <output.gds>" << endl;
         return 1;
     }
 
@@ -81,10 +81,10 @@ int main(int argc, char* argv[]) {
         cerr << "Ошибка: " << e.what() << endl;
         return 1;
     }
-    string output_png = argv[4];
+    string output_gds = argv[4];
 
     // Чтение GDSII-файла
-    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, NULL, NULL);
+    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, nullptr, nullptr);
 
     gdstk::Cell* top_cell = lib.cell_array[0];
     gdstk::Array<gdstk::Reference*> removed_references = {0};
@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
     ClipperLib::Clipper clipper;
     clipper.AddPath(rect, ClipperLib::ptClip, true);  // Прямоугольник для обрезки
 
-    gdstk::Array<gdstk::Polygon*> polygons;
+    gdstk::Array<gdstk::Polygon*> polygons = {0};
     top_cell->get_polygons(true, true, 0, false, gdstk::Tag(), polygons);
 
     ClipperLib::Paths clipped_polygons;
@@ -127,39 +127,35 @@ int main(int argc, char* argv[]) {
         top_cell->polygon_array.append(final_polygons[i]);
     }
 
-    // Освобождение памяти для polygons массива
-    for (size_t i = 0; i < polygons.count; ++i) {
-        delete polygons[i];
-    }
-    polygons.clear();
 
-
-    int width = upright_coord.first - lowleft_coord.first;
-    int height = upright_coord.second - lowleft_coord.second;
-    cout << "width: " << width << endl;
-    cout << "height: " << height << endl;
-
-    // Создание пустого изображения с белым фоном
-    std::vector<unsigned char> image(height * width, 255);
-
-    // Рисование полигонов на изображении
-    for (size_t i = 0; i < final_polygons.count; ++i) {
-        gdstk::Polygon* polygon = final_polygons[i];
-        for (size_t j = 0; j < polygon->point_array.count; ++j) {
-//            int x = static_cast<int>(polygon->point_array[j].x) - min_x;
-//            int y = static_cast<int>(polygon->point_array[j].y) - min_y;
-            int x = static_cast<int>(polygon->point_array[j].x) - lowleft_coord.first;
-            int y = upright_coord.second - static_cast<int>(polygon->point_array[j].y);
-            if (x >= 0 && x < width && y >= 0 && y < height) {
-                image[y * width + x] = 0;  // Установка черного пикселя
-            }
-        }
-    }
-
-    // Сохранение изображения в PNG файл
-    stbi_write_png(output_png.c_str(), width, height, 1, image.data(), width);
-
-    cout << "Изображение сохранено: " << output_png << endl;
+//    TODO: Realized black pixels sets in vertices of polygons. Necessary define pixel size in key to program
+//     and fill polygons with black pixels.
+//    // determining the size of blank image
+//    int width = upright_coord.first - lowleft_coord.first;
+//    int height = upright_coord.second - lowleft_coord.second;
+//    cout << "width: " << width << endl;
+//    cout << "height: " << height << endl;
+//
+//    // blank image
+//    std::vector<unsigned char> image(height * width, 255);
+//
+//    // sets black pixels at the vertices of polygons.
+//    for (size_t i = 0; i < final_polygons.count; ++i) {
+//        gdstk::Polygon* polygon = final_polygons[i];
+//        for (size_t j = 0; j < polygon->point_array.count; ++j) {
+////            int x = static_cast<int>(polygon->point_array[j].x) - min_x;
+////            int y = static_cast<int>(polygon->point_array[j].y) - min_y;
+//            int x = static_cast<int>(polygon->point_array[j].x) - lowleft_coord.first;
+//            int y = upright_coord.second - static_cast<int>(polygon->point_array[j].y);
+//            if (x >= 0 && x < width && y >= 0 && y < height) {
+//                image[y * width + x] = 0;  // black pixel at vertices of polygons
+//            }
+//        }
+//    }
+//
+//    // Save topology to PNG
+//    stbi_write_png(output_png.c_str(), width, height, 1, image.data(), width);
+//    cout << "Изображение сохранено: " << output_png << endl;
 
 
     // Create a GDSII library and cell for output
@@ -177,11 +173,9 @@ int main(int argc, char* argv[]) {
 
     // Write library to GDS file
     cout << "Выходной GDS: " << library.name << endl;
-    cout << "Выходной GDS: " << library.cell_array.count << endl;
-    cout << "Выходной GDS: " << library.properties << endl;
-    library.write_gds("output.GDS", 0, NULL);
+    library.write_gds(output_gds.c_str(), 0, NULL);
 
-    cout << "GDS file saved: output.GDS" << endl;
+    cout << "GDS file saved: " << output_gds << endl;
 
 
     for (size_t i = 0; i < final_polygons.count; ++i) {
