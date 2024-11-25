@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <regex>
 #include "external/gdstk/include/gdstk/gdstk.hpp"
 #include "external/gdstk/include/gdstk/clipper_tools.hpp"
 #include "external/gdstk/external/clipper/clipper.hpp"
@@ -58,9 +59,13 @@ int main(int argc, char* argv[]) {
     pair<double, double> upright_coord = {0, 0};
     bool cut = false;
 
-    // Define options
+    string layer_datatype_str;
+    gdstk::Tag layer_datatype = gdstk::make_tag(0, 0);
+
+    // define options
     static struct option long_options[] = {
             {"input", required_argument, 0, 'i'},
+            {"layer", required_argument, 0, 'L'},
             {"output", optional_argument, 0, 'o'},
             {"lowleft", optional_argument, 0, 'l'},
             {"upright", optional_argument, 0, 'u'},
@@ -68,32 +73,59 @@ int main(int argc, char* argv[]) {
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "i:o:l:u:", long_options, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "i:L:o:l:u:", long_options, nullptr)) != -1) {
         switch (opt) {
             case 'i': input_gds = optarg; break;
 //            case 'o': output_gds = optarg; break;
+            case 'L': {
+                string layer_arg(optarg);
+                size_t comma_pos = layer_arg.find(',');
+                if (comma_pos == string::npos) {
+                    cerr << "error: --layer must contain a comma separating layer and datatype (e.g., 8,0)" << endl;
+                    return 1;
+                }
+                try {
+                    int layer = stoi(layer_arg.substr(0, comma_pos));
+                    int datatype = stoi(layer_arg.substr(comma_pos + 1));
+                    std::cout << "parsed layer: " << layer << ", datatype: " << datatype << std::endl;
+                    layer_datatype = gdstk::make_tag(layer, datatype);
+                } catch (const invalid_argument& e) {
+                    cerr << "error parsing --layer: " << e.what() << endl;
+                    return 1;
+                }
+                std::cout << "received --layer value: " << optarg << std::endl;
+                break;
+            }
             case 'o':
                 if (optarg) {
                     output_gds = optarg;
                 } else {
-                    cerr << "Error: -o option requires an argument" << endl;
+                    cerr << "error: -o option requires an argument" << endl;
                     return 1;
                 }
                 break;
             case 'l': lowleft_coord = parse_coordinates(optarg); cut = true; break;
             case 'u': upright_coord = parse_coordinates(optarg); cut = true; break;
-            default: cerr << "Usage: --input <input.gds> [--output <output.gds>] [--lowleft x,y] [--upright x,y]\n"; return 1;
+            default: cerr << "usage: --input <input.gds> --layer (layer,datatype) [--output <output.gds>] [--lowleft x,y] [--upright x,y]\\n";
+            return 1;
         }
     }
 
     if (input_gds.empty()) {
-        cerr << "Error: --input <input.gds> is mandatory\n";
+        cerr << "error: --input <input.gds> is mandatory\n";
+        return 1;
+    }
+
+    if (layer_datatype == gdstk::make_tag(0, 0)) {
+        cerr << "error: --layer is mandatory and must be in the format layer,datatype (e.g., 8,0)\n";
         return 1;
     }
 
     if (output_gds.empty()) output_gds = input_gds;
 
-    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, nullptr, nullptr);
+    gdstk::Set<gdstk::Tag> layer_datatypes;
+    layer_datatypes.add(layer_datatype);
+    gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, &layer_datatypes, nullptr);
     gdstk::Cell* top_cell = lib.cell_array[0];
     gdstk::Array<gdstk::Reference*> removed_references = {0};
     top_cell->flatten(true, removed_references);
@@ -101,16 +133,16 @@ int main(int argc, char* argv[]) {
     gdstk::Array<gdstk::Polygon *> final_polygons = {0};
 
     if (cut) {
-        // Define a bounding rectangle for the Clipper
+        // define a bounding rectangle for the clipper
         ClipperLib::Path rect = {
                 ClipperLib::IntPoint(lowleft_coord.first * 1e2, lowleft_coord.second * 1e2),
                 ClipperLib::IntPoint(upright_coord.first * 1e2, lowleft_coord.second * 1e2),
                 ClipperLib::IntPoint(upright_coord.first * 1e2, upright_coord.second * 1e2),
                 ClipperLib::IntPoint(lowleft_coord.first * 1e2, upright_coord.second * 1e2)
         };
-        cout << "Ограничивающий прямоугольник: " << rect << endl;
+        cout << "ограничивающий прямоугольник: " << rect << endl;
 
-        // Trimming polygons
+        // trimming polygons
         ClipperLib::Clipper clipper;
         clipper.AddPath(rect, ClipperLib::ptClip, true);
 
@@ -125,7 +157,7 @@ int main(int argc, char* argv[]) {
 
         clipper.Execute(ClipperLib::ctIntersection, clipped_polygons);
 
-        // Transformation Clipper::Paths into gdstk::Polygon
+        // transformation clipper::paths into gdstk::polygon
         for (const auto &path: clipped_polygons) {
             final_polygons.append(new gdstk::Polygon(convert_from_clipper(path)));
         }
@@ -136,12 +168,12 @@ int main(int argc, char* argv[]) {
             top_cell->polygon_array.append(final_polygons[i]);
         }
     } else {
-        // Copying all polygons without cutting
+        // copying all polygons without cutting
         top_cell->get_polygons(true, true, 0, false, gdstk::Tag(), final_polygons);
     }
 
 
-//    TODO: Realized black pixels sets in vertices of polygons. Necessary define pixel size in key to program
+//    todo: realized black pixels sets in vertices of polygons. necessary define pixel size in key to program
 //     and fill polygons with black pixels.
 //    // determining the size of blank image
 //    int width = upright_coord.first - lowleft_coord.first;
@@ -154,7 +186,7 @@ int main(int argc, char* argv[]) {
 //
 //    // sets black pixels at the vertices of polygons.
 //    for (size_t i = 0; i < final_polygons.count; ++i) {
-//        gdstk::Polygon* polygon = final_polygons[i];
+//        gdstk::polygon* polygon = final_polygons[i];
 //        for (size_t j = 0; j < polygon->point_array.count; ++j) {
 ////            int x = static_cast<int>(polygon->point_array[j].x) - min_x;
 ////            int y = static_cast<int>(polygon->point_array[j].y) - min_y;
@@ -166,31 +198,33 @@ int main(int argc, char* argv[]) {
 //        }
 //    }
 //
-//    // Save topology to PNG
+//    // save topology to png
 //    stbi_write_png(output_png.c_str(), width, height, 1, image.data(), width);
-//    cout << "Изображение сохранено: " << output_png << endl;
+//    cout << "изображение сохранено: " << output_png << endl;
 
 
-    // Create a GDSII library and cell for output
+    // create a gdsii library and cell for output
     gdstk::Library library = {};
     library.init("output_library", 1e-6, 1e-8);
     gdstk::Cell* output_cell = new gdstk::Cell();
     output_cell->name = gdstk::copy_string("output", NULL);
     library.cell_array.append(output_cell);
 
-    // Add trim polygons to output cell
+    // add trim polygons to output cell
     for (size_t i = 0; i < final_polygons.count; ++i) {
         output_cell->polygon_array.append(final_polygons[i]);
     }
 
-    // Write library to GDS file
+    // write library to gds file
     library.write_gds(output_gds.c_str(), 0, NULL);
-    cout << "GDS file saved: " << output_gds << endl;
+    cout << "gds file saved: " << output_gds << endl;
 
     for (size_t i = 0; i < final_polygons.count; ++i) {
         delete final_polygons[i];
     }
 
+
+    layer_datatypes.clear();
     final_polygons.clear();
     output_cell->clear();
     delete output_cell;
