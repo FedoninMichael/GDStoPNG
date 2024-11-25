@@ -1,4 +1,4 @@
-./GDStoGDS --input input.gds -o output.gds -l 0,0 -u 0,0
+./GDStoGDS --input input.gds --layer layer,datatype -o output.gds -l 0,0 -u 0,0
 
 -l lowerleft
 
