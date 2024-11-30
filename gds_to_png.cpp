@@ -93,7 +93,6 @@ int main(int argc, char* argv[]) {
                     cerr << "error parsing --layer: " << e.what() << endl;
                     return 1;
                 }
-                std::cout << "received --layer value: " << optarg << std::endl;
                 break;
             }
             case 'o':
@@ -123,7 +122,7 @@ int main(int argc, char* argv[]) {
 
     if (output_gds.empty()) output_gds = input_gds;
 
-    gdstk::Set<gdstk::Tag> layer_datatypes;
+    gdstk::Set<gdstk::Tag> layer_datatypes = {};
     layer_datatypes.add(layer_datatype);
     gdstk::Library lib = gdstk::read_gds(input_gds.c_str(), 1e-6, 10e-8, &layer_datatypes, nullptr);
     gdstk::Cell* top_cell = lib.cell_array[0];
@@ -140,7 +139,6 @@ int main(int argc, char* argv[]) {
                 ClipperLib::IntPoint(upright_coord.first * 1e2, upright_coord.second * 1e2),
                 ClipperLib::IntPoint(lowleft_coord.first * 1e2, upright_coord.second * 1e2)
         };
-        cout << "ограничивающий прямоугольник: " << rect << endl;
 
         // trimming polygons
         ClipperLib::Clipper clipper;
