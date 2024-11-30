@@ -11,6 +11,7 @@
 #include "external/stb/stb_image_write.h"
 
 using namespace std;
+bool layer_provided = false;
 
 
 // Redefine the string into pair of coordinates
@@ -89,6 +90,7 @@ int main(int argc, char* argv[]) {
                     int datatype = stoi(layer_arg.substr(comma_pos + 1));
                     std::cout << "parsed layer: " << layer << ", datatype: " << datatype << std::endl;
                     layer_datatype = gdstk::make_tag(layer, datatype);
+                    layer_provided = true;
                 } catch (const invalid_argument& e) {
                     cerr << "error parsing --layer: " << e.what() << endl;
                     return 1;
@@ -115,7 +117,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (layer_datatype == gdstk::make_tag(0, 0)) {
+    if (!layer_provided) {
         cerr << "error: --layer is mandatory and must be in the format layer,datatype (e.g., 8,0)\n";
         return 1;
     }
